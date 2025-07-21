@@ -16,6 +16,9 @@ import {
   Zap
 } from 'lucide-react';
 import { mockTrips, getPersonalBest, mockWeeklyStats } from '@/lib/mockData';
+import { InsightHeroCard } from '@/components/insights/InsightHeroCard';
+import { SmartSuggestions } from '@/components/insights/SmartSuggestions';
+import { getTripInsights, getRouteOptimizationInsights } from '@/lib/mockInsights';
 
 interface TripSummaryScreenProps {
   onBack: () => void;
@@ -29,6 +32,32 @@ export function TripSummaryScreen({ onBack, tripId }: TripSummaryScreenProps) {
     : mockTrips.find(trip => trip.day === 'Today');
     
   const personalBest = getPersonalBest();
+  
+  // Generate insights for this trip (BELOW trip data)
+  const tripInsights = tripData ? getTripInsights(
+    parseInt(tripData.time.split(':')[0]) * 60 + parseInt(tripData.time.split(':')[1]),
+    25 * 60 // average 25 minutes
+  ) : [];
+  
+  const routeOptimizationInsights = getRouteOptimizationInsights();
+  
+  // Create suggestions based on trip performance
+  const tripSuggestions = tripData ? [
+    {
+      id: 'timing-1',
+      type: 'timing' as const,
+      title: 'Optimal departure time',
+      description: `Based on this trip, try leaving at ${tripData.departureTime === '8:30 AM' ? '8:25 AM' : '8:30 AM'}`,
+      savings: '2-3 min'
+    },
+    {
+      id: 'pattern-1', 
+      type: 'pattern' as const,
+      title: 'Day-of-week insight',
+      description: `${tripData.day} trips are typically ${tripData.deltaType === 'faster' ? 'faster' : 'slower'} than average`,
+      savings: tripData.delta
+    }
+  ] : [];
 
   if (!tripData) {
     return (

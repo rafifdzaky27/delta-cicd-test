@@ -13,7 +13,8 @@ import {
   Zap,
   CloudRain,
   Sun,
-  Cloud
+  Cloud,
+  Play
 } from 'lucide-react';
 import { getTodaysTrip, mockWeeklyStats, weatherIcons, trafficColors } from '@/lib/mockData';
 
@@ -40,34 +41,35 @@ export function HomeScreen({
   const [isLoading, setIsLoading] = useState(true);
   const [liveSpeed, setLiveSpeed] = useState(42);
   const [liveETA, setLiveETA] = useState('--:--');
-  const [currentProgress, setCurrentProgress] = useState(0); // Local progress state
+  const [currentProgress, setCurrentProgress] = useState(0);
+  const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
 
   useEffect(() => {
+    // Check if user has completed setup but no trips yet
+    const setupComplete = localStorage.getItem('setupComplete');
+    const hasTrips = todaysTrip !== null;
+    
+    setIsFirstTimeUser(setupComplete === 'true' && !hasTrips);
+    
     // Simulate loading
     const timer = setTimeout(() => setIsLoading(false), 1000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [todaysTrip]);
 
-  // Real-time timer for HomeScreen - WITH DEBUG LOGGING
+  // Real-time timer for HomeScreen - WITH CLEAN LOGGING
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    
-    console.log('HomeScreen useEffect triggered:', { backgroundTripRunning, backgroundTripProgress });
     
     if (backgroundTripRunning) {
       // Initialize with background progress
       setCurrentProgress(backgroundTripProgress || 0);
-      console.log('Starting HomeScreen timer with progress:', backgroundTripProgress);
       
       interval = setInterval(() => {
-        console.log('HomeScreen timer tick');
         setCurrentProgress(prev => {
           // Calculate new progress (increment every second)
           const totalDuration = 150000; // 2.5 minutes in milliseconds
           const increment = 1000 / totalDuration; // Progress per second
           const newProgress = Math.min(prev + increment, 1.0);
-          
-          console.log('Progress updated:', prev, '→', newProgress);
           
           // Sync progress back to background state
           if (onUpdateBackgroundProgress) {
@@ -95,12 +97,10 @@ export function HomeScreen({
         });
       }, 1000);
     } else {
-      console.log('Background trip not running, clearing progress');
       setCurrentProgress(0);
     }
 
     return () => {
-      console.log('Cleaning up HomeScreen timer');
       clearInterval(interval);
     };
   }, [backgroundTripRunning]); // Remove currentProgress from dependency to avoid infinite loop
@@ -262,6 +262,53 @@ export function HomeScreen({
                   <div className="font-semibold text-yellow-200">Moderate</div>
                 </div>
               </div>
+            </div>
+          </Card>
+        ) : isFirstTimeUser ? (
+          /* First Time User - Start First Trip */
+          <Card className="p-6 bg-gradient-primary shadow-card animate-scale-in">
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto">
+                <MapPin className="w-8 h-8 text-white" />
+              </div>
+              
+              <div>
+                <h3 className="text-xl font-bold text-white mb-2">Ready for your first trip?</h3>
+                <p className="text-white/90 text-sm">
+                  We'll automatically learn your route to {localStorage.getItem('pendingDestinationType') === 'school' ? 'school' : localStorage.getItem('pendingDestinationType') === 'other' ? 'your destination' : 'office'} during this trip.
+                </p>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center gap-3 text-sm text-white/80">
+                  <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                    <div className="w-2 h-2 rounded-full bg-white"></div>
+                  </div>
+                  <span>Auto-detect start and end points</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-white/80">
+                  <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                    <div className="w-2 h-2 rounded-full bg-white"></div>
+                  </div>
+                  <span>Learn your route preferences</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-white/80">
+                  <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                    <div className="w-2 h-2 rounded-full bg-white"></div>
+                  </div>
+                  <span>Start getting insights immediately</span>
+                </div>
+              </div>
+
+              <Button 
+                onClick={onStartMockTrip}
+                variant="secondary"
+                className="w-full h-12 text-base font-medium bg-white text-primary hover:bg-white/90"
+                size="lg"
+              >
+                <Play className="w-4 h-4 mr-2" />
+                Start My First Trip
+              </Button>
             </div>
           </Card>
         ) : todaysTrip ? (

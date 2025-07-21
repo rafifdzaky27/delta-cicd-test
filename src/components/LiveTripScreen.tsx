@@ -50,6 +50,14 @@ export function LiveTripScreen({
   const [currentSector, setCurrentSector] = useState(0);
   const [currentSpeed, setCurrentSpeed] = useState(0);
   const [tripStartTime] = useState(backgroundTripState?.startTime || Date.now());
+  const [isFirstTrip, setIsFirstTrip] = useState(false);
+
+  // Check if this is user's first trip
+  useEffect(() => {
+    const setupComplete = localStorage.getItem('setupComplete');
+    const pendingDestination = localStorage.getItem('pendingDestinationType');
+    setIsFirstTrip(setupComplete === 'true' && pendingDestination !== null);
+  }, []);
 
   // Accelerated time - 25 minutes becomes 2.5 minutes (10x speed)
   const SPEED_MULTIPLIER = 10;
@@ -116,12 +124,39 @@ export function LiveTripScreen({
           // Check if trip is complete
           if (progress >= 1) {
             setIsActive(false);
+            
+            // Handle first-time user route creation
+            if (isFirstTrip) {
+              const destinationType = localStorage.getItem('pendingDestinationType') || 'office';
+              const routeName = destinationType === 'school' ? 'Home → School' : 
+                               destinationType === 'other' ? 'Home → Destination' : 
+                               'Home → Office';
+              
+              // Create route data (in real app, this would be saved to backend)
+              const routeData = {
+                id: 'route-1',
+                name: routeName,
+                startLocation: 'Home', // Would be actual coordinates
+                endLocation: destinationType === 'school' ? 'School' : 
+                            destinationType === 'other' ? 'Destination' : 'Office',
+                sectors: mockTrip.sectors,
+                createdAt: new Date().toISOString()
+              };
+              
+              // Save route and clear pending state
+              localStorage.setItem('userRoute', JSON.stringify(routeData));
+              localStorage.removeItem('pendingDestinationType');
+              
+              console.log('First route created:', routeData);
+            }
+            
             const tripData = {
               duration: newElapsed,
               distance: '18.2 km',
               averageSpeed: '42.1 km/h',
               status: 'completed',
-              sectors: mockTrip.sectors
+              sectors: mockTrip.sectors,
+              isFirstTrip: isFirstTrip
             };
             
             // Clear background trip

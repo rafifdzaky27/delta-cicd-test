@@ -226,3 +226,19 @@ All colors MUST be HSL.
 .bg-primary-light {
   background-color: rgb(238 242 255);
 }
+/* Color utility classes for onboarding */
+.bg-primary-light {
+  background-color: rgb(238 242 255);
+}
+
+.bg-success-light {
+  background-color: rgb(240 253 244);
+}
+
+.bg-warning-light {
+  background-color: rgb(255 251 235);
+}
+
+.text-warning {
+  color: rgb(245 158 11);
+}
