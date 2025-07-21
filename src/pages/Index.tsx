@@ -3,6 +3,7 @@ import { WelcomeScreen } from '@/components/WelcomeScreen';
 import { DemoScreen } from '@/components/DemoScreen';
 import { RouteSetup } from '@/components/RouteSetup';
 import { HomeScreen } from '@/components/HomeScreen';
+import { InsightsScreen } from '@/components/InsightsScreen';
 import { TripSummaryScreen } from '@/components/TripSummaryScreen';
 import { HistoryScreen } from '@/components/HistoryScreen';
 import { AnalyticsScreen } from '@/components/AnalyticsScreen';
@@ -58,6 +59,11 @@ const Index = () => {
     setCurrentScreen('history');
   };
 
+  const handleViewInsights = () => {
+    setPreviousScreen(currentScreen);
+    setCurrentScreen('insights');
+  };
+
   const handleViewTrip = (tripId?: string) => {
     setPreviousScreen(currentScreen);
     setSelectedTripId(tripId);
@@ -75,7 +81,7 @@ const Index = () => {
     setCurrentScreen('trip');
   };
 
-  const handleNavigation = (screen: 'home' | 'trip' | 'history' | 'settings' | 'analytics') => {
+  const handleNavigation = (screen: 'home' | 'trip' | 'insights' | 'history' | 'settings' | 'analytics') => {
     if (screen !== 'trip') {
       setSelectedTripId(undefined);
     }
@@ -135,6 +141,8 @@ const Index = () => {
         );
       case 'trip':
         return <TripSummaryScreen onBack={handleBackToPrevious} tripId={selectedTripId} />;
+      case 'insights':
+        return <InsightsScreen onBack={handleBackToPrevious} />;
       case 'history':
         return <HistoryScreen onBack={handleBackToPrevious} onSelectTrip={handleSelectTrip} />;
       case 'analytics':
