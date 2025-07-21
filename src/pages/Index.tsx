@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { WelcomeScreen } from '@/components/WelcomeScreen';
+import { DemoScreen } from '@/components/DemoScreen';
+import { RouteSetup } from '@/components/RouteSetup';
 import { HomeScreen } from '@/components/HomeScreen';
 import { TripSummaryScreen } from '@/components/TripSummaryScreen';
 import { HistoryScreen } from '@/components/HistoryScreen';
@@ -9,7 +11,7 @@ import { LiveTripScreen } from '@/components/LiveTripScreen';
 import { TripCompletionScreen } from '@/components/TripCompletionScreen';
 import { Navbar } from '@/components/Navbar';
 
-type Screen = 'welcome' | 'home' | 'trip' | 'history' | 'analytics' | 'settings' | 'live-trip' | 'trip-complete';
+type Screen = 'welcome' | 'demo' | 'setup' | 'home' | 'trip' | 'history' | 'analytics' | 'settings' | 'live-trip' | 'trip-complete';
 
 const Index = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
@@ -25,6 +27,28 @@ const Index = () => {
     progress: 0
   });
 
+  // Onboarding handlers
+  const handleViewDemo = () => {
+    setCurrentScreen('demo');
+  };
+
+  const handleSkipToSetup = () => {
+    setCurrentScreen('setup');
+  };
+
+  const handleCompleteDemo = () => {
+    setCurrentScreen('setup');
+  };
+
+  const handleSkipDemo = () => {
+    setCurrentScreen('setup');
+  };
+
+  const handleCompleteSetup = () => {
+    setCurrentScreen('home');
+  };
+
+  // Legacy handler for direct welcome completion (fallback)
   const handleCompleteWelcome = () => {
     setCurrentScreen('home');
   };
@@ -92,7 +116,11 @@ const Index = () => {
   const renderScreen = () => {
     switch (currentScreen) {
       case 'welcome':
-        return <WelcomeScreen onComplete={handleCompleteWelcome} />;
+        return <WelcomeScreen onViewDemo={handleViewDemo} onSkipToSetup={handleSkipToSetup} />;
+      case 'demo':
+        return <DemoScreen onComplete={handleCompleteDemo} onSkip={handleSkipDemo} />;
+      case 'setup':
+        return <RouteSetup onComplete={handleCompleteSetup} />;
       case 'home':
         return (
           <HomeScreen 
@@ -144,15 +172,15 @@ const Index = () => {
   return (
     <div className="max-w-md mx-auto bg-background min-h-screen relative">
       {renderScreen()}
-      {/* Show navbar on all screens except welcome and trip-complete */}
-      {(currentScreen !== 'welcome' && currentScreen !== 'trip-complete') && (
+      {/* Show navbar on all screens except onboarding and trip-complete */}
+      {(currentScreen !== 'welcome' && currentScreen !== 'demo' && currentScreen !== 'setup' && currentScreen !== 'trip-complete') && (
         <Navbar 
           currentScreen={currentScreen === 'live-trip' ? 'home' : currentScreen} 
           onNavigate={handleNavigation}
         />
       )}
       {/* Add bottom padding for screens that show navbar */}
-      {(currentScreen !== 'welcome' && currentScreen !== 'trip-complete') && <div className="h-20"></div>}
+      {(currentScreen !== 'welcome' && currentScreen !== 'demo' && currentScreen !== 'setup' && currentScreen !== 'trip-complete') && <div className="h-20"></div>}
     </div>
   );
 };

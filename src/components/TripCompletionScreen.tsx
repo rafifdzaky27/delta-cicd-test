@@ -21,6 +21,7 @@ interface TripCompletionScreenProps {
     status: 'completed' | 'stopped';
     progress?: number;
     sectors?: any[];
+    isFirstTrip?: boolean;
   };
   onBackToHome: () => void;
   onViewDetails: () => void;
@@ -29,6 +30,7 @@ interface TripCompletionScreenProps {
 export function TripCompletionScreen({ tripData, onBackToHome, onViewDetails }: TripCompletionScreenProps) {
   const [showCelebration, setShowCelebration] = useState(true);
   const [animationPhase, setAnimationPhase] = useState(0);
+  const [isFirstTrip] = useState(tripData.isFirstTrip || false);
 
   useEffect(() => {
     // Celebration animation sequence
@@ -42,6 +44,17 @@ export function TripCompletionScreen({ tripData, onBackToHome, onViewDetails }: 
       clearTimeout(timer3);
     };
   }, []);
+
+  const getRouteInfo = () => {
+    if (isFirstTrip) {
+      const savedRoute = localStorage.getItem('userRoute');
+      if (savedRoute) {
+        const route = JSON.parse(savedRoute);
+        return route.name;
+      }
+    }
+    return 'Telkom University → Menara BJB';
+  };
 
   const formatDuration = (ms: number) => {
     const minutes = Math.floor(ms / 60000);
@@ -112,14 +125,31 @@ export function TripCompletionScreen({ tripData, onBackToHome, onViewDetails }: 
           {animationPhase >= 1 && (
             <div className="animate-fade-in">
               <h1 className="text-3xl font-bold text-foreground mb-2">
-                {tripData.status === 'completed' ? 'Trip Completed!' : 'Trip Stopped'}
+                {isFirstTrip ? 'First Trip Complete!' : 
+                 tripData.status === 'completed' ? 'Trip Completed!' : 'Trip Stopped'}
               </h1>
               <p className="text-muted-foreground mb-6">
-                {tripData.status === 'completed' 
-                  ? "You've arrived at Menara BJB" 
-                  : `Trip ended at ${Math.round((tripData.progress || 0) * 100)}% progress`
+                {isFirstTrip 
+                  ? `Route "${getRouteInfo()}" has been created and learned!`
+                  : tripData.status === 'completed' 
+                    ? "You've arrived at Menara BJB" 
+                    : `Trip ended at ${Math.round((tripData.progress || 0) * 100)}% progress`
                 }
               </p>
+              
+              {isFirstTrip && (
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200 mb-6">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-green-900">Route Successfully Created</p>
+                      <p className="text-xs text-green-700 mt-1">
+                        DELTA has learned your route and will provide insights for future trips.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
