@@ -20,17 +20,103 @@ import { getTodaysTrip, mockWeeklyStats, weatherIcons, trafficColors } from '@/l
 interface HomeScreenProps {
   onViewHistory: () => void;
   onViewTrip: () => void;
+  onStartMockTrip?: () => void;
+  onReturnToLiveTrip?: () => void;
+  backgroundTripRunning?: boolean;
+  backgroundTripProgress?: number;
+  onUpdateBackgroundProgress?: (progress: number) => void; // Add callback to sync back
 }
 
-export function HomeScreen({ onViewHistory, onViewTrip }: HomeScreenProps) {
+export function HomeScreen({ 
+  onViewHistory, 
+  onViewTrip, 
+  onStartMockTrip, 
+  onReturnToLiveTrip,
+  backgroundTripRunning,
+  backgroundTripProgress,
+  onUpdateBackgroundProgress
+}: HomeScreenProps) {
   const [todaysTrip] = useState(getTodaysTrip());
   const [isLoading, setIsLoading] = useState(true);
+  const [liveSpeed, setLiveSpeed] = useState(42);
+  const [liveETA, setLiveETA] = useState('--:--');
+  const [currentProgress, setCurrentProgress] = useState(0); // Local progress state
 
   useEffect(() => {
     // Simulate loading
     const timer = setTimeout(() => setIsLoading(false), 1000);
     return () => clearTimeout(timer);
   }, []);
+
+  // Real-time timer for HomeScreen - WITH DEBUG LOGGING
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    console.log('HomeScreen useEffect triggered:', { backgroundTripRunning, backgroundTripProgress });
+    
+    if (backgroundTripRunning) {
+      // Initialize with background progress
+      setCurrentProgress(backgroundTripProgress || 0);
+      console.log('Starting HomeScreen timer with progress:', backgroundTripProgress);
+      
+      interval = setInterval(() => {
+        console.log('HomeScreen timer tick');
+        setCurrentProgress(prev => {
+          // Calculate new progress (increment every second)
+          const totalDuration = 150000; // 2.5 minutes in milliseconds
+          const increment = 1000 / totalDuration; // Progress per second
+          const newProgress = Math.min(prev + increment, 1.0);
+          
+          console.log('Progress updated:', prev, '→', newProgress);
+          
+          // Sync progress back to background state
+          if (onUpdateBackgroundProgress) {
+            onUpdateBackgroundProgress(newProgress);
+          }
+          
+          return newProgress;
+        });
+        
+        // Update other live data
+        const baseSpeed = 42;
+        const variation = Math.sin(Date.now() / 5000) * 8;
+        setLiveSpeed(Math.max(30, baseSpeed + variation));
+        
+        // Calculate ETA based on current progress - use callback to get latest progress
+        setCurrentProgress(currentProg => {
+          const remainingTime = (1 - currentProg) * 150000;
+          const eta = new Date(Date.now() + remainingTime);
+          setLiveETA(eta.toLocaleTimeString('en-US', { 
+            hour12: false, 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          }));
+          return currentProg; // Return same value, just using callback to get latest
+        });
+      }, 1000);
+    } else {
+      console.log('Background trip not running, clearing progress');
+      setCurrentProgress(0);
+    }
+
+    return () => {
+      console.log('Cleaning up HomeScreen timer');
+      clearInterval(interval);
+    };
+  }, [backgroundTripRunning]); // Remove currentProgress from dependency to avoid infinite loop
+
+  // Calculate elapsed time from progress (sync with LiveTripScreen)
+  const calculateElapsedFromProgress = (progress: number) => {
+    const totalDuration = 150000; // 2.5 minutes in milliseconds
+    return Math.floor(progress * totalDuration);
+  };
+
+  // Format elapsed time from milliseconds
+  const formatElapsedTime = (ms: number) => {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
 
   const getDeltaColor = (type: 'faster' | 'slower' | 'same') => {
     switch (type) {
@@ -104,60 +190,151 @@ export function HomeScreen({ onViewHistory, onViewTrip }: HomeScreenProps) {
           </Button>
         </div>
 
-        {/* Today's Summary Card */}
-        <Card className="p-6 bg-gradient-card shadow-card animate-scale-in">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-primary" />
-              <span className="font-medium text-foreground">Today's Commute</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {getWeatherIcon(todaysTrip.weather)}
-              <span className="text-sm text-muted-foreground capitalize">
-                {todaysTrip.weather}
-              </span>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {/* Main Time Display */}
-            <div className="text-center py-4">
-              <div className="text-4xl font-bold text-foreground mb-2">
-                {todaysTrip.time}
+        {/* Today's Summary Card or Live Trip Card */}
+        {backgroundTripRunning ? (
+          /* Live Trip Card */
+          <Card className="p-6 bg-gradient-to-r from-primary to-purple-600 text-white shadow-card animate-pulse-success">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-white rounded-full animate-ping"></div>
+                <span className="font-medium text-white">Live Trip in Progress</span>
               </div>
-              <div className={`flex items-center justify-center gap-1 text-lg font-medium ${getDeltaColor(todaysTrip.deltaType)}`}>
-                {getDeltaIcon(todaysTrip.deltaType)}
-                <span>{todaysTrip.delta} vs usual</span>
-              </div>
+              <Button 
+                onClick={onReturnToLiveTrip}
+                variant="secondary"
+                size="sm"
+                className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+              >
+                View Live
+              </Button>
             </div>
 
-            {/* Quick Stats */}
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
-              <div className="text-center">
-                <div className="text-sm text-muted-foreground mb-1">You left</div>
-                <div className="font-semibold text-foreground">{todaysTrip.departureTime}</div>
-                <div className="text-xs text-muted-foreground">
-                  (usual: {mockWeeklyStats.averageDeparture})
+            <div className="space-y-4">
+              {/* Live Time Display - Using local progress */}
+              <div className="text-center py-4">
+                <div className="text-4xl font-bold text-white mb-2">
+                  {formatElapsedTime(calculateElapsedFromProgress(currentProgress))}
+                </div>
+                <div className="flex items-center justify-center gap-1 text-lg font-medium text-white/90">
+                  <Activity className="w-4 h-4" />
+                  <span>{Math.round(currentProgress * 100)}% completed</span>
                 </div>
               </div>
-              <div className="text-center">
-                <div className="text-sm text-muted-foreground mb-1">Best time</div>
-                <div className="font-semibold text-foreground">{mockWeeklyStats.bestTime}</div>
-                <div className="text-xs text-success">Personal record</div>
+
+              {/* Live Progress Bar */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-white/80">Route Progress</span>
+                  <span className="text-white font-medium">{Math.round(currentProgress * 100)}%</span>
+                </div>
+                <div className="w-full bg-white/20 rounded-full h-3">
+                  <div 
+                    className="bg-white h-3 rounded-full transition-all duration-1000 relative"
+                    style={{ width: `${currentProgress * 100}%` }}
+                  >
+                    <div className="absolute right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full border-2 border-primary shadow-lg"></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Stats */}
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/20">
+                <div className="text-center">
+                  <div className="text-sm text-white/80 mb-1">Current Speed</div>
+                  <div className="font-semibold text-white">
+                    {Math.round(liveSpeed)} km/h
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-sm text-white/80 mb-1">ETA</div>
+                  <div className="font-semibold text-white">
+                    {liveETA}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-sm text-white/80 mb-1">Remaining</div>
+                  <div className="font-semibold text-white">
+                    {(18.2 * (1 - currentProgress)).toFixed(1)} km
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-sm text-white/80 mb-1">Traffic</div>
+                  <div className="font-semibold text-yellow-200">Moderate</div>
+                </div>
               </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        ) : todaysTrip ? (
+          /* Regular Today's Commute Card */
+          <Card className="p-6 bg-gradient-card shadow-card animate-scale-in">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Activity className="w-5 h-5 text-primary" />
+                <span className="font-medium text-foreground">Today's Commute</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {getWeatherIcon(todaysTrip.weather)}
+                <span className="text-sm text-muted-foreground capitalize">
+                  {todaysTrip.weather}
+                </span>
+              </div>
+            </div>
 
-        {/* Action Button */}
-        <Button 
-          onClick={onViewTrip}
-          variant="soft"
-          className="w-full mt-4 h-12"
-        >
-          View detailed breakdown
-          <ArrowRight className="w-4 h-4 ml-2" />
-        </Button>
+            <div className="space-y-4">
+              {/* Main Time Display */}
+              <div className="text-center py-4">
+                <div className="text-4xl font-bold text-foreground mb-2">
+                  {todaysTrip.time}
+                </div>
+                <div className={`flex items-center justify-center gap-1 text-lg font-medium ${getDeltaColor(todaysTrip.deltaType)}`}>
+                  {getDeltaIcon(todaysTrip.deltaType)}
+                  <span>{todaysTrip.delta} vs usual</span>
+                </div>
+              </div>
+
+              {/* Quick Stats */}
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
+                <div className="text-center">
+                  <div className="text-sm text-muted-foreground mb-1">You left</div>
+                  <div className="font-semibold text-foreground">{todaysTrip.departureTime}</div>
+                  <div className="text-xs text-muted-foreground">
+                    (usual: {mockWeeklyStats.averageDeparture})
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-sm text-muted-foreground mb-1">Best time</div>
+                  <div className="font-semibold text-foreground">{mockWeeklyStats.bestTime}</div>
+                  <div className="text-xs text-success">Personal record</div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        ) : null}
+
+        {/* Action Button - Hide when mock trip is running */}
+        {!backgroundTripRunning && (
+          <Button 
+            onClick={onViewTrip}
+            variant="soft"
+            className="w-full mt-4 h-12"
+          >
+            View detailed breakdown
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+        )}
+
+        {/* Mock Trip Button */}
+        {onStartMockTrip && (
+          <Button 
+            onClick={onStartMockTrip}
+            disabled={backgroundTripRunning}
+            variant="default"
+            className="w-full mt-3 h-12 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Activity className="w-4 h-4 mr-2" />
+            {backgroundTripRunning ? 'Trip Already Running' : 'Start Mock Trip'}
+          </Button>
+        )}
       </div>
 
       {/* Sectors Preview */}

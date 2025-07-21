@@ -102,8 +102,7 @@ export function HistoryScreen({ onBack, onSelectTrip }: HistoryScreenProps) {
             {trips.map((trip, index) => (
               <Card 
                 key={trip.id} 
-                className="p-4 bg-background shadow-soft cursor-pointer hover:shadow-card transition-shadow animate-slide-up"
-                style={{ animationDelay: `${index * 50}ms` }}
+                className="p-4 bg-background shadow-soft cursor-pointer hover:shadow-card transition-shadow"
                 onClick={() => onSelectTrip(trip.id)}
               >
                 <div className="flex items-center justify-between">
