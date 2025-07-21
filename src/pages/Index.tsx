@@ -1,91 +1,80 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { WelcomeScreen } from '@/components/WelcomeScreen';
 import { HomeScreen } from '@/components/HomeScreen';
 import { TripSummaryScreen } from '@/components/TripSummaryScreen';
 import { HistoryScreen } from '@/components/HistoryScreen';
-import { SettingsScreen } from '@/components/SettingsScreen';
 import { AnalyticsScreen } from '@/components/AnalyticsScreen';
+import { SettingsScreen } from '@/components/SettingsScreen';
 import { Navbar } from '@/components/Navbar';
-import { storageService } from '@/services/storage';
 
-type Screen = 'welcome' | 'home' | 'trip' | 'history' | 'settings' | 'analytics';
+type Screen = 'welcome' | 'home' | 'trip' | 'history' | 'analytics' | 'settings';
 
 const Index = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
-  const [isFirstTime, setIsFirstTime] = useState(true);
-
-  // Check if user has completed onboarding
-  useEffect(() => {
-    const hasActiveRoute = storageService.getActiveRoute();
-    const hasCompletedOnboarding = localStorage.getItem('delta_onboarding_completed');
-    
-    if (hasActiveRoute || hasCompletedOnboarding) {
-      setIsFirstTime(false);
-      setCurrentScreen('home');
-    }
-  }, []);
+  const [previousScreen, setPreviousScreen] = useState<Screen>('home'); // Track previous screen
+  const [selectedTripId, setSelectedTripId] = useState<string | undefined>(undefined);
 
   const handleCompleteWelcome = () => {
-    localStorage.setItem('delta_onboarding_completed', 'true');
-    setIsFirstTime(false);
     setCurrentScreen('home');
-  };
-
-  const handleNavigate = (screen: 'home' | 'trip' | 'history' | 'settings' | 'analytics') => {
-    setCurrentScreen(screen);
   };
 
   const handleViewHistory = () => {
+    setPreviousScreen(currentScreen);
     setCurrentScreen('history');
   };
 
-  const handleViewTrip = () => {
+  const handleViewTrip = (tripId?: string) => {
+    setPreviousScreen(currentScreen);
+    setSelectedTripId(tripId);
     setCurrentScreen('trip');
   };
 
-  const handleBackToHome = () => {
-    setCurrentScreen('home');
+  const handleBackToPrevious = () => {
+    setSelectedTripId(undefined);
+    setCurrentScreen(previousScreen); // Go back to previous screen
   };
 
   const handleSelectTrip = (tripId: string) => {
-    // In a real app, you'd load the specific trip data
+    setPreviousScreen('history'); // Set history as previous when selecting from history
+    setSelectedTripId(tripId);
     setCurrentScreen('trip');
   };
 
-  // Show welcome screen for first-time users
-  if (isFirstTime) {
-    return <WelcomeScreen onComplete={handleCompleteWelcome} />;
-  }
+  const handleNavigation = (screen: 'home' | 'trip' | 'history' | 'settings' | 'analytics') => {
+    if (screen !== 'trip') {
+      setSelectedTripId(undefined);
+    }
+    setPreviousScreen(currentScreen);
+    setCurrentScreen(screen);
+  };
 
   const renderScreen = () => {
     switch (currentScreen) {
+      case 'welcome':
+        return <WelcomeScreen onComplete={handleCompleteWelcome} />;
       case 'home':
-        return <HomeScreen onViewHistory={handleViewHistory} onViewTrip={handleViewTrip} />;
+        return <HomeScreen onViewHistory={handleViewHistory} onViewTrip={() => handleViewTrip()} />;
       case 'trip':
-        return <TripSummaryScreen onBack={handleBackToHome} />;
+        return <TripSummaryScreen onBack={handleBackToPrevious} tripId={selectedTripId} />;
       case 'history':
-        return <HistoryScreen onBack={handleBackToHome} onSelectTrip={handleSelectTrip} />;
+        return <HistoryScreen onBack={handleBackToPrevious} onSelectTrip={handleSelectTrip} />;
       case 'analytics':
-        return <AnalyticsScreen onBack={handleBackToHome} />;
+        return <AnalyticsScreen onBack={handleBackToPrevious} />;
       case 'settings':
-        return <SettingsScreen onBack={handleBackToHome} />;
+        return <SettingsScreen onBack={handleBackToPrevious} />;
       default:
-        return <HomeScreen onViewHistory={handleViewHistory} onViewTrip={handleViewTrip} />;
+        return <HomeScreen onViewHistory={handleViewHistory} onViewTrip={() => handleViewTrip()} />;
     }
   };
 
   return (
     <div className="max-w-md mx-auto bg-background min-h-screen relative">
-      {/* Main Content */}
-      <div className="pb-20">
-        {renderScreen()}
-      </div>
-      
-      {/* Floating Bottom Navbar */}
+      {renderScreen()}
       <Navbar 
         currentScreen={currentScreen} 
-        onNavigate={handleNavigate} 
+        onNavigate={handleNavigation}
       />
+      {currentScreen !== 'welcome' && <div className="h-20"></div>}
     </div>
   );
 };
