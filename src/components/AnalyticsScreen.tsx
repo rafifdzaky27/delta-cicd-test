@@ -14,12 +14,34 @@ import {
 } from 'lucide-react';
 import { mockTrips, mockRoutes, getTripsByDirection, mockWeeklyStats } from '@/lib/mockData';
 
+// Phase 2 Deep Analytics Components
+import { PredictiveInsights } from '@/components/analytics/PredictiveInsights';
+import { BehaviorAnalysis } from '@/components/analytics/BehaviorAnalysis';
+import { PerformanceTrends } from '@/components/analytics/PerformanceTrends';
+import { OptimizationEngine } from '@/components/analytics/OptimizationEngine';
+import { ComparativeMetrics } from '@/components/analytics/ComparativeMetrics';
+import { WeatherImpactAnalysis } from '@/components/analytics/WeatherImpactAnalysis';
+import { SeasonalPatterns } from '@/components/analytics/SeasonalPatterns';
+
 interface AnalyticsScreenProps {
   onBack: () => void;
 }
 
 export function AnalyticsScreen({ onBack }: AnalyticsScreenProps) {
   const [selectedRoute, setSelectedRoute] = useState<string>('route-to-office');
+  const [activeTab, setActiveTab] = useState<string>('overview');
+  
+  // Analytics tabs configuration
+  const analyticsTabs = [
+    { id: 'overview', label: 'Overview', icon: BarChart3 },
+    { id: 'predictions', label: 'Predictions', icon: Lightbulb },
+    { id: 'behavior', label: 'Behavior', icon: Target },
+    { id: 'performance', label: 'Performance', icon: TrendingUp },
+    { id: 'optimization', label: 'Optimization', icon: Route },
+    { id: 'comparison', label: 'Comparison', icon: Timer },
+    { id: 'weather', label: 'Weather', icon: Calendar },
+    { id: 'seasonal', label: 'Seasonal', icon: Clock }
+  ];
   
   // Get trips by direction for analytics
   const toOfficeTrips = getTripsByDirection('to-office');
@@ -83,8 +105,32 @@ export function AnalyticsScreen({ onBack }: AnalyticsScreenProps) {
           </Button>
         </div>
 
-        {/* Route Stats Overview */}
-        {selectedStats && (
+        {/* Analytics Tabs */}
+        <div className="flex overflow-x-auto gap-2 mb-6 scrollbar-hide">
+          {analyticsTabs.map((tab) => {
+            const IconComponent = tab.icon;
+            return (
+              <Button
+                key={tab.id}
+                variant={activeTab === tab.id ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab(tab.id)}
+                className="flex items-center gap-2 whitespace-nowrap flex-shrink-0"
+              >
+                <IconComponent className="w-4 h-4" />
+                {tab.label}
+              </Button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      <div className="px-6">
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            {/* Route Stats Overview */}
+            {selectedStats && (
           <Card className="p-6 bg-gradient-card shadow-card mb-6">
             <div className="flex items-center gap-2 mb-4">
               <Route className="w-5 h-5 text-primary" />
@@ -195,6 +241,51 @@ export function AnalyticsScreen({ onBack }: AnalyticsScreenProps) {
             )}
           </div>
         </Card>
+          </div>
+        )}
+
+        {activeTab === 'predictions' && (
+          <PredictiveInsights 
+            route={selectedRoute}
+            routeData={selectedTrips}
+          />
+        )}
+        {activeTab === 'behavior' && (
+          <BehaviorAnalysis 
+            route={selectedRoute}
+            routeData={selectedTrips}
+          />
+        )}
+        {activeTab === 'performance' && (
+          <PerformanceTrends 
+            route={selectedRoute}
+            routeData={selectedTrips}
+          />
+        )}
+        {activeTab === 'optimization' && (
+          <OptimizationEngine 
+            route={selectedRoute}
+            routeData={selectedTrips}
+          />
+        )}
+        {activeTab === 'comparison' && (
+          <ComparativeMetrics 
+            route={selectedRoute}
+            routeData={selectedTrips}
+          />
+        )}
+        {activeTab === 'weather' && (
+          <WeatherImpactAnalysis 
+            route={selectedRoute}
+            routeData={selectedTrips}
+          />
+        )}
+        {activeTab === 'seasonal' && (
+          <SeasonalPatterns 
+            route={selectedRoute}
+            routeData={selectedTrips}
+          />
+        )}
       </div>
     </div>
   );
