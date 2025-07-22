@@ -17,6 +17,8 @@ import {
   Play
 } from 'lucide-react';
 import { getTodaysTrip, mockWeeklyStats, weatherIcons, trafficColors } from '@/lib/mockData';
+// Phase 2: Quick Preview Component  
+import { PredictiveInsights } from '@/components/analytics/PredictiveInsights';
 
 interface HomeScreenProps {
   onViewHistory: () => void;
@@ -357,6 +359,33 @@ export function HomeScreen({
             </div>
           </Card>
         ) : null}
+
+        {/* Phase 2: Tomorrow's Prediction Preview */}
+        <Card className="p-4 bg-gradient-card shadow-card mt-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium text-foreground">Tomorrow's Forecast</span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => onNavigate('insights')}>
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <CloudRain className="w-5 h-5 text-blue-600" />
+              <div>
+                <div className="text-sm font-medium text-foreground">Light rain expected</div>
+                <div className="text-xs text-muted-foreground">Leave 5 minutes earlier</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-lg font-bold text-foreground">23 min</div>
+              <div className="text-xs text-muted-foreground">predicted</div>
+            </div>
+          </div>
+        </Card>
 
         {/* Action Button - Hide when mock trip is running */}
         {!backgroundTripRunning && (

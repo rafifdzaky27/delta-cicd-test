@@ -10,10 +10,16 @@ import {
   Calendar,
   Zap
 } from 'lucide-react';
+
+// Phase 1.5 Insight Components - RESTORED
 import { InsightHeroCard } from '@/components/insights/InsightHeroCard';
 import { SmartSuggestions } from '@/components/insights/SmartSuggestions';
 import { OptimalTiming } from '@/components/insights/OptimalTiming';
 import { PatternAlert } from '@/components/insights/PatternAlert';
+
+// Phase 2 Advanced Components - ADDED as enhancement
+import { PredictiveInsights } from '@/components/analytics/PredictiveInsights';
+
 import { 
   getTodaysInsight, 
   getSmartSuggestions, 
@@ -26,52 +32,58 @@ interface InsightsScreenProps {
 }
 
 export function InsightsScreen({ onBack }: InsightsScreenProps) {
-  // Get all insight data
   const [todaysInsight] = useState(getTodaysInsight());
   const [smartSuggestions] = useState(getSmartSuggestions());
   const [weeklyPattern] = useState(getWeeklyPattern());
   const [optimalTiming] = useState(getOptimalTiming());
   
-  // Additional insights for dedicated screen
+  // Additional insights from Phase 1.5 - RESTORED
   const [additionalInsights] = useState([
     {
-      type: 'trend' as const,
-      title: 'Your consistency is improving',
-      description: 'Trip times are 20% more predictable compared to last month',
+      type: 'optimization' as const,
+      title: 'Route Efficiency Boost',
+      description: 'Taking Jl. Buah Batu during rush hour saves 4 minutes on average',
       impact: 'medium' as const,
-      actionable: false
+      actionable: true,
+      confidence: 87
     },
     {
-      type: 'optimization' as const,
-      title: 'Weekend pattern detected',
-      description: 'Saturday trips are 25% faster - consider weekend errands',
+      type: 'pattern' as const, // Changed from 'behavioral' to 'pattern'
+      title: 'Consistency Pattern',
+      description: 'Your Tuesday departures are 23% more consistent than other weekdays',
       impact: 'low' as const,
-      actionable: true
+      actionable: false,
+      confidence: 92
+    },
+    {
+      type: 'weather' as const, // Changed from 'predictive' to 'weather'
+      title: 'Weather Impact Alert',
+      description: 'Light rain tomorrow morning may add 3-5 minutes to your commute',
+      impact: 'medium' as const,
+      actionable: true,
+      confidence: 78
     }
   ]);
-
+  
   return (
-    <div className="min-h-screen bg-gradient-surface">
-      {/* Header - Consistent with other screens */}
-      <div className="flex items-center justify-between p-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={onBack}>
+    <div className="min-h-screen bg-gradient-surface pb-20 md:pb-6">
+      {/* Header */}
+      <div className="px-6 pt-6 pb-4">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="sm" onClick={onBack} className="p-2">
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Insights</h1>
-            <p className="text-muted-foreground">Your commute intelligence</p>
+            <h1 className="text-2xl font-bold text-foreground">Smart Insights</h1>
+            <p className="text-sm text-muted-foreground">Your personalized commute intelligence</p>
           </div>
-        </div>
-        <div className="w-10 h-10 bg-primary-light rounded-full flex items-center justify-center">
-          <Lightbulb className="w-5 h-5 text-primary" />
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-6 space-y-6">
+      <div className="px-6 space-y-6">
         
-        {/* Hero Insight */}
+        {/* PHASE 1.5: Hero Insight - RESTORED */}
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
             <Target className="w-5 h-5 text-primary" />
@@ -83,38 +95,33 @@ export function InsightsScreen({ onBack }: InsightsScreenProps) {
           />
         </div>
 
-        {/* Optimal Timing */}
+        {/* PHASE 2: Tomorrow's Prediction - COMPREHENSIVE (includes timing) */}
         <div>
-          <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-primary" />
-            Timing Optimization
+          <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Zap className="w-5 h-5 text-primary" />
+            Tomorrow's Forecast
           </h2>
-          <OptimalTiming 
-            {...optimalTiming}
-            className="animate-fade-in"
-            style={{ animationDelay: '0.1s' }}
-          />
+          <PredictiveInsights />
         </div>
 
-        {/* Smart Suggestions */}
+        {/* PHASE 1.5: Smart Suggestions - RESTORED */}
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-            <Zap className="w-5 h-5 text-primary" />
-            Smart Recommendations
+            <TrendingUp className="w-5 h-5 text-primary" />
+            Smart Suggestions
           </h2>
           <SmartSuggestions 
             suggestions={smartSuggestions}
-            maxVisible={4}
             className="animate-fade-in"
             style={{ animationDelay: '0.2s' }}
           />
         </div>
 
-        {/* Pattern Analysis */}
+        {/* PHASE 1.5: Pattern Analysis - RESTORED */}
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-primary" />
-            Pattern Analysis
+            <Calendar className="w-5 h-5 text-primary" />
+            Weekly Patterns
           </h2>
           <PatternAlert 
             pattern={weeklyPattern}
@@ -123,27 +130,29 @@ export function InsightsScreen({ onBack }: InsightsScreenProps) {
           />
         </div>
 
-        {/* Additional Insights */}
+        {/* PHASE 1.5: Additional Insights - FILTERED (remove weather duplicate) */}
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-primary" />
+            <Lightbulb className="w-5 h-5 text-primary" />
             More Insights
           </h2>
           <div className="space-y-3">
-            {additionalInsights.map((insight, index) => (
-              <InsightHeroCard 
-                key={index}
-                insight={insight}
-                className="animate-fade-in"
-                style={{ animationDelay: `${0.4 + index * 0.1}s` }}
-              />
-            ))}
+            {additionalInsights
+              .filter(insight => insight.type !== 'weather') // Remove weather duplicate
+              .map((insight, index) => (
+                <InsightHeroCard 
+                  key={index}
+                  insight={insight}
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${0.4 + index * 0.1}s` }}
+                />
+              ))}
           </div>
         </div>
 
-        {/* Action Section */}
-        <Card className="p-6 bg-gradient-primary text-white">
-          <div className="text-center space-y-4">
+        {/* Call to Action */}
+        <Card className="p-6 bg-gradient-primary text-white text-center">
+          <div className="space-y-4">
             <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto">
               <Target className="w-6 h-6 text-white" />
             </div>
@@ -157,13 +166,11 @@ export function InsightsScreen({ onBack }: InsightsScreenProps) {
               variant="secondary"
               className="bg-white text-primary hover:bg-white/90"
             >
-              Start Your Next Trip
+              <Clock className="w-4 h-4 mr-2" />
+              Start Tracking
             </Button>
           </div>
         </Card>
-
-        {/* Bottom Spacing */}
-        <div className="h-20"></div>
       </div>
     </div>
   );
