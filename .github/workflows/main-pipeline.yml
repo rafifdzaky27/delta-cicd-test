@@ -1,0 +1,283 @@
+name: Main Delivery Pipeline
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-delivery
+  cancel-in-progress: false
+
+jobs:
+  # ------------------------------------------------------------------
+  # STAGE 1: BUILD & PACKAGE (Artifact Producer)
+  # ------------------------------------------------------------------
+  build-package:
+    name: Build & Package Application
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ steps.artifact-info.outputs.name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Linting
+        run: npm run lint
+
+      - name: Security Audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Build Application
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Set Artifact Info
+        id: artifact-info
+        run: echo "name=delta-build-${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        with:
+          name: delta-build-${{ github.sha }}
+          path: dist/
+          retention-days: 1
+          if-no-files-found: error
+
+  # ------------------------------------------------------------------
+  # STAGE 2: DEPLOY STAGING (Artifact Consumer 1)
+  # ------------------------------------------------------------------
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build-package
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: http://172.104.61.233:8081
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@eaceaf801fd36c7dee90939fad912460b18a1ffe # v4.1.2
+        with:
+          name: delta-build-${{ github.sha }}
+          path: dist/
+
+      - name: Verify Artifact
+        run: |
+          echo "📦 Verifying artifact contents..."
+          ls -lah dist/
+          if [ ! -f "dist/index.html" ]; then
+            echo "❌ Error: index.html not found!"
+            exit 1
+          fi
+          echo "✅ Artifact verified"
+
+      - name: Create Deployment Package
+        run: |
+          cd dist
+          tar -czf ../deploy-staging.tar.gz .
+          cd ..
+          ls -lh deploy-staging.tar.gz
+
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to Staging Server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_PORT: ${{ secrets.SSH_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH_STAGING }}
+        run: |
+          echo "🚀 Deploying to staging..."
+          
+          scp -i ~/.ssh/deploy_key -P $SSH_PORT deploy-staging.tar.gz $SSH_USERNAME@$SSH_HOST:/tmp/
+          
+          ssh -i ~/.ssh/deploy_key -p $SSH_PORT $SSH_USERNAME@$SSH_HOST << 'ENDSSH'
+            set -e
+            
+            DEPLOY_PATH="${{ secrets.DEPLOY_PATH_STAGING }}"
+            BACKUP_DIR="/var/www/backups/staging"
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            
+            echo "📦 Creating backup..."
+            mkdir -p "$BACKUP_DIR"
+            
+            if [ -d "$DEPLOY_PATH" ] && [ "$(ls -A $DEPLOY_PATH)" ]; then
+              tar -czf "$BACKUP_DIR/backup_$TIMESTAMP.tar.gz" -C "$DEPLOY_PATH" . || true
+              cd "$BACKUP_DIR" && ls -t | tail -n +6 | xargs -r rm
+            fi
+            
+            echo "🔄 Deploying..."
+            mkdir -p "$DEPLOY_PATH"
+            rm -rf "$DEPLOY_PATH"/*
+            tar -xzf /tmp/deploy-staging.tar.gz -C "$DEPLOY_PATH"
+            rm /tmp/deploy-staging.tar.gz
+            
+            echo "✅ Deployment complete!"
+          ENDSSH
+
+      - name: Health Check
+        run: |
+          echo "🏥 Running health check..."
+          sleep 5
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://172.104.61.233:8081 || echo "000")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Health check passed!"
+          else
+            echo "⚠️ Health check returned HTTP $HTTP_CODE"
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
+
+      - name: Deployment Summary
+        if: success()
+        run: |
+          echo "## 🎉 Staging Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** Staging" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL:** http://172.104.61.233:8081" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Artifact:** delta-build-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔒 Build Once, Deploy Many" >> $GITHUB_STEP_SUMMARY
+          echo "This deployment uses the exact artifact built in Stage 1." >> $GITHUB_STEP_SUMMARY
+
+  # ------------------------------------------------------------------
+  # STAGE 3: DEPLOY PRODUCTION (Artifact Consumer 2)
+  # ------------------------------------------------------------------
+  deploy-production:
+    name: Deploy to Production
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: http://172.104.61.233
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@eaceaf801fd36c7dee90939fad912460b18a1ffe # v4.1.2
+        with:
+          name: delta-build-${{ github.sha }}
+          path: dist/
+
+      - name: Verify Artifact
+        run: |
+          echo "📦 Verifying artifact contents..."
+          ls -lah dist/
+          if [ ! -f "dist/index.html" ]; then
+            echo "❌ Error: index.html not found!"
+            exit 1
+          fi
+          echo "✅ Artifact verified - SAME BUILD as Staging"
+
+      - name: Create Deployment Package
+        run: |
+          cd dist
+          tar -czf ../deploy-production.tar.gz .
+          cd ..
+          ls -lh deploy-production.tar.gz
+
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to Production Server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_PORT: ${{ secrets.SSH_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH_PRODUCTION }}
+        run: |
+          echo "🚀 Deploying to PRODUCTION..."
+          
+          scp -i ~/.ssh/deploy_key -P $SSH_PORT deploy-production.tar.gz $SSH_USERNAME@$SSH_HOST:/tmp/
+          
+          ssh -i ~/.ssh/deploy_key -p $SSH_PORT $SSH_USERNAME@$SSH_HOST << 'ENDSSH'
+            set -e
+            
+            DEPLOY_PATH="${{ secrets.DEPLOY_PATH_PRODUCTION }}"
+            BACKUP_DIR="/var/www/backups/production"
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            
+            echo "📦 Creating backup..."
+            mkdir -p "$BACKUP_DIR"
+            
+            if [ -d "$DEPLOY_PATH" ] && [ "$(ls -A $DEPLOY_PATH)" ]; then
+              tar -czf "$BACKUP_DIR/backup_$TIMESTAMP.tar.gz" -C "$DEPLOY_PATH" . || true
+              cd "$BACKUP_DIR" && ls -t | tail -n +11 | xargs -r rm
+            fi
+            
+            echo "🔄 Deploying..."
+            mkdir -p "$DEPLOY_PATH"
+            rm -rf "$DEPLOY_PATH"/*
+            tar -xzf /tmp/deploy-production.tar.gz -C "$DEPLOY_PATH"
+            rm /tmp/deploy-production.tar.gz
+            
+            echo "✅ Deployment complete!"
+          ENDSSH
+
+      - name: Health Check
+        run: |
+          echo "🏥 Running health check..."
+          sleep 5
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://172.104.61.233 || echo "000")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Health check passed!"
+          else
+            echo "❌ Health check failed! HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
+
+      - name: Deployment Summary
+        if: success()
+        run: |
+          echo "## 🎉 Production Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** Production" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL:** http://172.104.61.233" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Artifact:** delta-build-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔒 Build Once, Deploy Many" >> $GITHUB_STEP_SUMMARY
+          echo "This is the EXACT SAME artifact deployed to Staging." >> $GITHUB_STEP_SUMMARY
+          echo "No rebuild occurred - 100% consistency guaranteed." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔄 Rollback Instructions" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "ssh deploy@172.104.61.233" >> $GITHUB_STEP_SUMMARY
+          echo "cd /var/www/backups/production" >> $GITHUB_STEP_SUMMARY
+          echo "ls -lht  # Find backup" >> $GITHUB_STEP_SUMMARY
+          echo "tar -xzf backup_TIMESTAMP.tar.gz -C /var/www/delta-production" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

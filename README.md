@@ -1,8 +1,7 @@
 # 🛵 DELTA - Personal Commute Tracker
 
-[![CI](https://github.com/rafifdzaky27/delta-cicd-test/actions/workflows/ci.yml/badge.svg)](https://github.com/rafifdzaky27/delta-cicd-test/actions/workflows/ci.yml)
-[![CD Staging](https://github.com/rafifdzaky27/delta-cicd-test/actions/workflows/cd-staging.yml/badge.svg)](https://github.com/rafifdzaky27/delta-cicd-test/actions/workflows/cd-staging.yml)
-[![CD Production](https://github.com/rafifdzaky27/delta-cicd-test/actions/workflows/cd-production.yml/badge.svg)](https://github.com/rafifdzaky27/delta-cicd-test/actions/workflows/cd-production.yml)
+[![PR Checks](https://github.com/rafifdzaky27/delta-cicd-test/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/rafifdzaky27/delta-cicd-test/actions/workflows/pr-checks.yml)
+[![Main Pipeline](https://github.com/rafifdzaky27/delta-cicd-test/actions/workflows/main-pipeline.yml/badge.svg)](https://github.com/rafifdzaky27/delta-cicd-test/actions/workflows/main-pipeline.yml)
 
 > *Track your daily commute and discover your personal patterns. No racing, just rhythm.*
 
@@ -78,27 +77,30 @@ src/
 
 ### GitHub Actions Workflows
 
-This project uses GitHub Actions for automated CI/CD:
+This project uses a **two-workflow strategy** for optimal CI/CD:
 
-#### 🔄 Continuous Integration (CI)
-- **Trigger**: Every push and pull request
+#### 🔍 PR Quality Check (`pr-checks.yml`)
+- **Trigger**: Every pull request to main
+- **Purpose**: Fast feedback for developers
 - **Actions**:
   - ESLint code linting
-  - Build verification (Node 18.x & 20.x)
-  - Security audit with npm audit
-  - Artifact upload for successful builds
+  - Security audit (npm audit)
+  - Build verification (dry run)
+- **Speed**: ~2-3 minutes
 
-#### 🚀 Continuous Deployment (CD)
+#### 🚀 Main Delivery Pipeline (`main-pipeline.yml`)
+- **Trigger**: Push to main branch (after PR merge)
+- **Purpose**: Build once, deploy everywhere
+- **Stages**:
+  1. **Build & Package** - Build artifact once, upload for reuse
+  2. **Deploy Staging** - Auto-deploy to http://172.104.61.233:8081
+  3. **Deploy Production** - Manual approval, deploy to http://172.104.61.233
 
-**Staging Environment**
-- **URL**: http://172.104.61.233:8081
-- **Trigger**: Automatic on merge to `main` branch
-- **Features**: Auto-backup, health check, deployment summary
-
-**Production Environment**
-- **URL**: http://172.104.61.233
-- **Trigger**: Manual workflow dispatch (requires confirmation)
-- **Features**: Manual approval, auto-backup, health check, rollback instructions
+**Key Feature: Build Once, Deploy Many**
+- Application built only once in Stage 1
+- Same artifact deployed to both Staging and Production
+- Zero risk of dependency drift between environments
+- Guaranteed consistency
 
 ### Required GitHub Secrets
 
