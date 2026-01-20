@@ -1,5 +1,9 @@
 # 🛵 DELTA - Personal Commute Tracker
 
+[![CI](https://github.com/rafifdzaky27/delta-cicd-test/actions/workflows/ci.yml/badge.svg)](https://github.com/rafifdzaky27/delta-cicd-test/actions/workflows/ci.yml)
+[![CD Staging](https://github.com/rafifdzaky27/delta-cicd-test/actions/workflows/cd-staging.yml/badge.svg)](https://github.com/rafifdzaky27/delta-cicd-test/actions/workflows/cd-staging.yml)
+[![CD Production](https://github.com/rafifdzaky27/delta-cicd-test/actions/workflows/cd-production.yml/badge.svg)](https://github.com/rafifdzaky27/delta-cicd-test/actions/workflows/cd-production.yml)
+
 > *Track your daily commute and discover your personal patterns. No racing, just rhythm.*
 
 ## 🎯 About DELTA
@@ -70,13 +74,58 @@ src/
 - `npm run preview` - Preview production build
 - `npm run lint` - Run ESLint
 
-## 🌐 Deployment
+## 🌐 CI/CD & Deployment
 
-### Vercel Deployment
+### GitHub Actions Workflows
 
-1. Connect your repository to Vercel
-2. Set environment variables in Vercel dashboard
-3. Deploy automatically on push to main branch
+This project uses GitHub Actions for automated CI/CD:
+
+#### 🔄 Continuous Integration (CI)
+- **Trigger**: Every push and pull request
+- **Actions**:
+  - ESLint code linting
+  - Build verification (Node 18.x & 20.x)
+  - Security audit with npm audit
+  - Artifact upload for successful builds
+
+#### 🚀 Continuous Deployment (CD)
+
+**Staging Environment**
+- **URL**: http://172.104.61.233:8081
+- **Trigger**: Automatic on merge to `main` branch
+- **Features**: Auto-backup, health check, deployment summary
+
+**Production Environment**
+- **URL**: http://172.104.61.233
+- **Trigger**: Manual workflow dispatch (requires confirmation)
+- **Features**: Manual approval, auto-backup, health check, rollback instructions
+
+### Required GitHub Secrets
+
+Add these secrets in your repository settings (`Settings > Secrets and variables > Actions`):
+
+```
+SSH_PRIVATE_KEY          # SSH private key for deployment
+SSH_HOST                 # 172.104.61.233
+SSH_USERNAME             # deploy
+SSH_PORT                 # 22
+DEPLOY_PATH_STAGING      # /var/www/delta-staging
+DEPLOY_PATH_PRODUCTION   # /var/www/delta-production
+```
+
+### Manual Deployment
+
+To deploy to production manually:
+
+1. Go to **Actions** tab in GitHub
+2. Select **CD - Deploy to Production** workflow
+3. Click **Run workflow**
+4. Type `deploy` in the confirmation field
+5. Click **Run workflow** button
+
+### Server Setup
+
+For initial server setup, follow the comprehensive guide in `.github/workflows/` or refer to the server setup documentation.
 
 ### Environment Variables for Production
 
